@@ -8,13 +8,13 @@ function rhs_deterministic(arr::Array{Float64})
     y = get_y(arr)
     μ = get_μ(arr)
     p = get_p(arr)
-    return -(1+μ^2*(y-1)^2)*y+p
+    return .-(1 .+ μ.^2 .* (y .- 1) .^2) .* y .+ p
 end
 
 
 function rhs_stochastic(arr::Array{Float64})
     D = get_D(arr)
-    return sqrt(2*D)
+    return sqrt.(2*abs.(D))
 end
 
 

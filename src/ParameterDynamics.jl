@@ -1,6 +1,7 @@
 # In this file the struct ParameterDynamics is introduced which is a struct containing a field which
 # describes how to update the parameters during a runthough of the system.
 
+using .RHS_module
 
 """
     ParameterDynamics
@@ -21,10 +22,6 @@ A mutable struct which encodes the RHS of the dynamics of the parameter space
     package. If `noise_rate_prototype === nothing` then diagonal noise is used and `du` has the
     form of a Vector. Note that `noise_rate_prototype` must be the same must have the same sizes
     for corresponding instances of the ParameterDynamics and PhaseDynamics strucs.
-- `update::Union{Function,Nothing} = nothing`: This function describes how to update `g!` and 
-    `f!` if `update!` is applied to the respective object of the type `ParameterDynamics`. 
-    I.e. this function has takes argument and returns new functions `f!` and `g!` based of this 
-    argument. If `update = nothing` then `f!` and `g!` remain unchanged.
 
 If only `f!` and `g!` are given then `update` will be initialized to `update = nothing`
 """
@@ -32,35 +29,21 @@ mutable struct ParameterDynamics
     f!::Function
     g!::Function
     noise_rate_prototype::Union{Matrix{Float64},Nothing}
-    update::Union{Function,Nothing}
 end
 
 
 """
     ParameterDynamics(f!::Function, 
                         g!::Function;   
-                        noise_rate_prototype::Union{Matrix{Float64},Nothing} = nothing)
+                        noise_rate_prototype::Union{Matrix{Float64},Nothing} = nothing,
+                        update = nothing)
                     
-Alternative instantiation which returns an object of `ParameterDynamics` with `update = nothing`.
+Alternative instantiation which returns an object of `ParameterDynamics`.
 """
 function ParameterDynamics(f!::Function, 
                             g!::Function;   
                             noise_rate_prototype::Union{Matrix{Float64},Nothing} = nothing)
-    ParameterDynamics(f!,g!,noise_rate_prototype,nothing)
-end
-
-
-"""
-    update!(pd::ParameterDynamics, pastTraj)
-
-Updates the functions `pd.g` and `pd.f` of the ParameterDynamics object according the to update rules
-specified in the function `pd.update`. The argument `pastTraj` entails the information of the so far
-recorded trajectory.
-"""
-function update!(pd::ParameterDynamics, pastTraj, t)
-    if !(pd.update === nothing)
-        pd.f!, pd.g! = pd.update(pastTraj, t)
-    end
+    ParameterDynamics(f!,g!,noise_rate_prototype)
 end
 
 
@@ -72,7 +55,7 @@ This function encodes the deterministic part of the ODEs describing the dynamics
     as argument for `f!` when ceating an instance of the type `ParameterDynamics`.
 """
 function no_deterministic_param_dynamics!(du, u, t_0, t)
-    du[2:4] .= 0.
+    du[get_index["parameters"]] .= 0.
 end
 
 
@@ -84,7 +67,7 @@ This function encodes the stochastic part of the ODEs describing the dynamics of
     as argument for `g!` when ceating an instance of the type `ParameterDynamics`.
 """
 function no_stochastic_param_dynamics!(du, u, t_0, t)
-    du[2:4] .= 0.
+    du[get_index["parameters"]] .= 0.
 end
 
 

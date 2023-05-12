@@ -113,8 +113,8 @@ function runSystem(rp::RunParameters; update_system = false)
 
     # In-place update of the dynamical System on the product space consisting of the parameter space
     # and the phase space
-    rhs = Dict("f!" => (rp.phaseDyn.f!(du,u,p,t); rp.paramDyn.f!(du,u,p,t)), 
-                "g!" => (rp.phaseDyn.g!(du,u,p,t); rp.paramDyn.g!(du,u,p,t)))
+    f!(du,u,p,t) = (rp.phaseDyn.f!(du,u,p,t); rp.paramDyn.f!(du,u,p,t))
+    g!(du,u,p,t) = (rp.phaseDyn.g!(du,u,p,t); rp.paramDyn.g!(du,u,p,t))
 
     # Setting up the SDEProblem
     # Since the problem is run in subintervals instead of running the entire time interval in one
@@ -122,10 +122,10 @@ function runSystem(rp::RunParameters; update_system = false)
     # also allows for non autonomous systems
     tspan = (0.,Float64(rp.updateInterval))
     u₀ = toArray(rp.sys)
-    prob = SDEProblem(rhs["f!"],rhs["g!"],u₀,tspan,0,noise_rate_prototype=rp.paramDyn.noise_rate_prototype)
+    prob = SDEProblem(f!,g!,u₀,tspan,0,noise_rate_prototype=rp.paramDyn.noise_rate_prototype)
 
     # Set up array in which the trajectories are saved
-    traj = zeros(4,total_length)
+    traj = zeros(26,total_length)
 
     # Array containing all the times according to the datapoints of the trajectory
     t = collect(0:rp.dt:rp.t_max)[1:end-1]
@@ -149,15 +149,6 @@ function runSystem(rp::RunParameters; update_system = false)
         # as this appreas as first entry of the following subinterval
         traj[:,i*interval_length+1:(i+1)*interval_length] = new_traj[:,1:end-1]
 
-        # past_traj describes the entire trajectory up to the current time
-        past_traj = traj[:,1:(i+1)*interval_length]
-        past_t = t[:,1:(i+1)*interval_length]
-
-        # update the SDEProblem according to the update rules encoded in `rp.phaseDyn.update` and
-        # `rp.paramDyn.update`
-        update!(rp.phaseDyn,past_traj,past_t)
-        update!(rp.paramDyn,past_traj,past_t)
-
         # Set the new initial conditions for the next subinterval
         u₀ = new_traj[:,end]
         t_0 = rp.updateInterval*(i+1)
@@ -167,12 +158,9 @@ function runSystem(rp::RunParameters; update_system = false)
             updateSystem!(rp.sys, u₀)
         end
 
-        # Update the equations describing the full Dynamics of both phase space and parameter space
-        rhs["f!"] = (rp.phaseDyn.f!(du,u,p,t); rp.paramDyn.f!(du,u,p,t))
-        rhs["g!"] = (rp.phaseDyn.g!(du,u,p,t); rp.paramDyn.g!(du,u,p,t))
-
         # Update the SDEProblem
-        prob = SDEProblem(rhs["f!"],rhs["g!"],u₀,tspan,t_0,noise_rate_prototype=rp.paramDyn.noise_rate_prototype)
+        # prob = SDEProblem(rhs["f!"],rhs["g!"],u₀,tspan,t_0,noise_rate_prototype=rp.paramDyn.noise_rate_prototype)
+        prob = remake(prob, u0 = u₀, p = t_0)
     end
     return traj, t
 end
